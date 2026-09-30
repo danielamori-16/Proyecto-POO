@@ -19,10 +19,10 @@ Para lograr salir del laboratorio con éxito, deberá de conseguir puntos a trav
 ## 👥 Integrantes
 - Mori Mendoza, Daniela
 - Uscamayta, Marx
--Jimenez Ostos, Giacomo
--Ronceros Huaynapomas, Rolando
--Ccoyllo, Alex
-
+- Jimenez Ostos, Giacomo
+- Ronceros Huaynapomas, Rolando
+- Ccoyllo, Alex
+  
 ## 💻 Tecnologías
 - Lenguaje: C++
 - Git y GitHub
