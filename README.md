@@ -130,10 +130,10 @@ Se implementan los siguientes patrones de diseño:
 ## 👥 Integrantes
 
 - Mori Mendoza, Daniela
-- Uscamayta, Marx
+- Uscamayta Lazaro, Marx
 - Jimenez Ostos, Giacomo
 - Ronceros Huaynapomas, Rolando
-- Ccoyllo, Alex
+- Ccoyllo Sotelo, Alex
 
 ---
 
