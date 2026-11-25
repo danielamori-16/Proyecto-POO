@@ -5,16 +5,7 @@
   **Proyecto Final – Programación Orientada a Objetos (POO)**
   
   **Universidad Peruana Cayetano Heredia | Ciclo 2026-2**
-</p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Lenguaje-C%2B%2B17-blue?style=for-the-badge&logo=cplusplus" />
-  <img src="https://img.shields.io/badge/Gráficos-SFML%203-green?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/Build-CMake-red?style=for-the-badge&logo=cmake" />
-  <img src="https://img.shields.io/badge/Estado-En%20desarrollo-orange?style=for-the-badge" />
-</p>
-
----
 
 ## 📌 Índice
 
