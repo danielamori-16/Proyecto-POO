@@ -1,0 +1,1 @@
+{"version":6,"configurePresets":[{"name":"ucrt64-ninja","displayName":"MSYS2 UCRT64 - Ninja","generator":"Ninja","binaryDir":"${sourceDir}/build","cacheVariables":{"CMAKE_CXX_COMPILER":"C:/msys64/ucrt64/bin/g++.exe","CMAKE_MAKE_PROGRAM":"C:/msys64/ucrt64/bin/ninja.exe"}}],"buildPresets":[{"name":"ucrt64-build","configurePreset":"ucrt64-ninja"}]}
