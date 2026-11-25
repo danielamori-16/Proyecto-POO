@@ -1,4 +1,3 @@
-
 #include "Juego.hpp"
 #include "ArmaElectrica.hpp"
 
@@ -6,7 +5,15 @@
 #include <functional>
 #include <string>
 #include <cmath>
+#include <cstdio>
 #include <iostream>
+
+std::string Juego::formatearTiempo(double segundos) {
+    char buffer[32];
+    std::snprintf(buffer, sizeof(buffer), "%.2f s", segundos);
+    return std::string(buffer);
+}
+
 // ========================================
 // CONSTRUCTOR
 // ========================================
@@ -19,7 +26,7 @@ Juego::Juego()
       camara(sf::FloatRect({0.f, 0.f}, {800.f, 600.f})),
       vistaInterfaz(sf::FloatRect({0.f, 0.f}, {800.f, 600.f})),
       cientifico(),
-     nivel(1),
+      nivel(1),
       puntuacion(),
       tiempoAtaque(0.f),
       gameOver(false),
@@ -51,7 +58,7 @@ Juego::Juego()
         "Energia", 10, sf::Vector2f{1000.f, 450.f}
     );
 
-// Cargar fuente.
+    // Cargar fuente.
     fuenteCargada = fuenteMenu.openFromFile(
         "C:/Windows/Fonts/arial.ttf"
     );
@@ -92,7 +99,6 @@ Juego::Juego()
 // ========================================
 
 bool Juego::posicionEnemigoValida(sf::Vector2f posicion) const {
-    // Caja de colision original de los robots: 40 x 40.
     return nivel.esTransitable(posicion, {40.f, 40.f});
 }
 
@@ -106,7 +112,6 @@ bool Juego::patrullaValida(
         desplazamiento.y * desplazamiento.y
     );
 
-    // Muestrear el corredor completo cada 5 pixeles.
     const int pasos = std::max(1, static_cast<int>(std::ceil(distancia / 5.f)));
     for (int i = 0; i <= pasos; ++i) {
         const float t = static_cast<float>(i) / static_cast<float>(pasos);
@@ -123,7 +128,6 @@ bool Juego::patrullaValida(
 // ========================================
 
 void Juego::crearEnemigosDelNivel() {
-    // Destruir enemigos anteriores y evitar punteros colgantes.
     robot = nullptr;
     guardianes.clear();
     atacantes.clear();
@@ -134,7 +138,6 @@ void Juego::crearEnemigosDelNivel() {
     guardianes.reserve(2);
     atacantes.reserve(3);
 
-    // Perseguidor: un robot en todos los niveles.
     {
         FabricaPerseguidor fabrica;
         auto creado = fabrica.crear(cientifico);
@@ -143,7 +146,6 @@ void Juego::crearEnemigosDelNivel() {
         robot->establecerNivel(nivel);
     }
 
-    // Crear un guardian SOLO si toda su patrulla es transitable.
     auto agregarGuardian = [&](sf::Vector2f inicio, sf::Vector2f fin) {
         if (!patrullaValida(inicio, fin)) {
             std::cerr << "[MAPA] Patrulla de guardian bloqueada en nivel "
@@ -159,7 +161,6 @@ void Juego::crearEnemigosDelNivel() {
         enemigos.push_back(std::move(creado));
     };
 
-    // Crear un atacante SOLO en suelo libre.
     auto agregarAtacante = [&](sf::Vector2f posicion) {
         if (!posicionEnemigoValida(posicion)) {
             std::cerr << "[MAPA] Posicion de atacante bloqueada en nivel "
@@ -172,56 +173,19 @@ void Juego::crearEnemigosDelNivel() {
         enemigos.push_back(std::move(creado));
     };
 
-    
-    // ========================================
-    // DISTRIBUCION DE ROBOTS POR NIVEL
-    // ========================================
-
     if (nivel.getNumero() == 2) {
-
-        // Guardian 1: recorrido que elegiste.
-        agregarGuardian(
-            {320.f, 580.f},
-            {520.f, 580.f}
-        );
-
-        // Guardian 2: sector superior derecho.
-        agregarGuardian(
-            {805.f, 125.f},
-            {1005.f, 125.f}
-        );
-
+        agregarGuardian({320.f, 580.f}, {520.f, 580.f});
+        agregarGuardian({805.f, 125.f}, {1005.f, 125.f});
     }
     else if (nivel.getNumero() == 3) {
+        agregarGuardian({325.f, 365.f}, {525.f, 365.f});
+        agregarGuardian({745.f, 645.f}, {945.f, 645.f});
 
-        // GUARDIANES - NIVEL 3
-
-        // Guardian 1: sector central izquierdo.
-        agregarGuardian(
-            {325.f, 365.f},
-            {525.f, 365.f}
-        );
-
-        // Guardian 2: sector inferior derecho.
-        agregarGuardian(
-            {745.f, 645.f},
-            {945.f, 645.f}
-        );
-
-        // ROBOTS DE ATAQUE - NIVEL 3
-
-        // Atacante 1: sector superior derecho.
         agregarAtacante({900.f, 220.f});
-
-        // Atacante 2: sector central.
         agregarAtacante({680.f, 445.f});
-
-        // Atacante 3: sector inferior izquierdo.
         agregarAtacante({240.f, 680.f});
     }
 
-
-    // Un efecto independiente por cada atacante realmente creado.
     laseres.resize(atacantes.size());
 }
 
@@ -229,43 +193,33 @@ void Juego::crearEnemigosDelNivel() {
 // REINICIAR PARTIDA
 // ========================================
 
-void Juego::reiniciarPartida() {
+void Juego::reiniciarPartida(bool reiniciarCronometro) {
     tiempoTutorial = 0.f;
     cientifico.reiniciar();
 
-    // Construir nuevamente los enemigos de este nivel.
-    // No reutilizar robots ni patrullas de mapas anteriores.
     crearEnemigosDelNivel();
-
-    // Puntuacion.
     puntuacion.reiniciar();
 
-    // Recuperar las cuatro baterias.
     objetos.clear();
+    objetos.emplace_back("Energia", 10, sf::Vector2f{200.f, 150.f});
+    objetos.emplace_back("Energia", 10, sf::Vector2f{1000.f, 150.f});
+    objetos.emplace_back("Energia", 10, sf::Vector2f{200.f, 450.f});
+    objetos.emplace_back("Energia", 10, sf::Vector2f{1000.f, 450.f});
 
-    objetos.emplace_back(
-        "Energia", 10, sf::Vector2f{200.f, 150.f}
-    );
-    objetos.emplace_back(
-        "Energia", 10, sf::Vector2f{1000.f, 150.f}
-    );
-    objetos.emplace_back(
-        "Energia", 10, sf::Vector2f{200.f, 450.f}
-    );
-    objetos.emplace_back(
-        "Energia", 10, sf::Vector2f{1000.f, 450.f}
-    );
-
-    // Volver a bloquear la puerta.
     nivel.setPuertaDesbloqueada(false);
 
-    // Restaurar interfaz y controles de partida.
     tiempoAtaque = 0.f;
     cargasElectricas = 5;
     tiempoDesdeDisparo = 1.f;
     armaElectrica.reiniciar();
     gameOver = false;
     victoria = false;
+
+    if (reiniciarCronometro) {
+        tiempoTotalPartida = 0.0;
+        apiSincronizada = false;
+        rankingGlobal.clear();
+    }
 
     opcionResultado = 0;
     partidaIniciada = true;
@@ -301,6 +255,28 @@ void Juego::procesarEventos() {
 }
 
 void Juego::eventosMenu(sf::Event& evento) {
+    // Permitir escribir nombre del jugador directamente en el menu
+    if (const auto* textoIngresado = evento.getIf<sf::Event::TextEntered>()) {
+        char32_t c = textoIngresado->unicode;
+        if (c == 8) { // Backspace
+            if (!nombreEditado) {
+                nombreJugador.clear();
+                nombreEditado = true;
+            } else if (!nombreJugador.empty()) {
+                nombreJugador.pop_back();
+            }
+        } else if (c >= 32 && c < 127) {
+            if (!nombreEditado) {
+                nombreJugador.clear();
+                nombreEditado = true;
+            }
+            if (nombreJugador.size() < 15) {
+                nombreJugador.push_back(static_cast<char>(c));
+            }
+        }
+        return;
+    }
+
     const auto* tecla = evento.getIf<sf::Event::KeyPressed>();
     if (!tecla) return;
 
@@ -314,8 +290,11 @@ void Juego::eventosMenu(sf::Event& evento) {
         if (opcionMenu == 0) {
             if (gameOver || victoria) {
                 nivel.cambiarNivel(1);
-                reiniciarPartida();
+                reiniciarPartida(true);
             } else {
+                if (!partidaIniciada) {
+                    tiempoTotalPartida = 0.0;
+                }
                 partidaIniciada = true;
                 irAJugando();
                 actualizarCamara();
@@ -387,12 +366,18 @@ void Juego::eventosResultado(sf::Event& evento, bool gano) {
         if (opcionResultado == 0) {
             if (gano) {
                 if (nivel.getNumero() < 3) {
+                    // Avanzar al siguiente nivel conservando el tiempo acumulado
                     nivel.cambiarNivel(nivel.getNumero() + 1);
+                    reiniciarPartida(false);
                 } else {
+                    // Nueva partida desde Nivel 1: reiniciar cronometro
                     nivel.cambiarNivel(1);
+                    reiniciarPartida(true);
                 }
+            } else {
+                // Reintentar nivel actual: el cronometro global sigue acumulando
+                reiniciarPartida(false);
             }
-            reiniciarPartida();
         } else {
             irAMenu();
             opcionMenu = 0;
@@ -444,15 +429,16 @@ void Juego::actualizarPartida(float dt) {
         return;
     }
 
+    // Acumular tiempo total de toda la partida (Niveles 1 -> 2 -> 3)
+    tiempoTotalPartida += static_cast<double>(dt);
+
     if (nivel.getNumero() == 1) {
         tiempoTutorial += dt;
     }
 
-
     sf::Vector2f posicionAnterior =
         cientifico.getPosicion();
 
-    // POLIMORFISMO: Cientifico y perseguidor se actualizan por la base.
     std::vector<std::reference_wrapper<Personaje>> personajes = {
         cientifico, *robot
     };
@@ -460,7 +446,6 @@ void Juego::actualizarPartida(float dt) {
         personaje.update(dt);
     }
 
-    // Ambos guardianes patrullan desde el nivel 2.
     if (nivel.getNumero() >= 2) {
         for (RobotGuardian* guardia : guardianes) {
             Personaje& personaje = *guardia;
@@ -468,7 +453,6 @@ void Juego::actualizarPartida(float dt) {
         }
     }
 
-    // Tres robots de ataque, tres lasers independientes, solo nivel 3.
     if (nivel.getNumero() == 3) {
         for (std::size_t i = 0; i < atacantes.size(); ++i) {
             RobotAtaque* atacante = atacantes[i];
@@ -495,7 +479,6 @@ void Juego::actualizarPartida(float dt) {
             laser.inicio = origen;
             laser.fin = destino;
 
-            // El laser se detiene al encontrar una pared.
             if (distancia > 0.f) {
                 const sf::Vector2f direccion = diferencia / distancia;
                 for (float paso = 5.f; paso < distancia; paso += 5.f) {
@@ -517,7 +500,6 @@ void Juego::actualizarPartida(float dt) {
             }
         }
     }
-
 
     // Colision del cientifico con paredes.
     if (nivel.hayColision(cientifico.getLimites())) {
@@ -559,16 +541,12 @@ void Juego::actualizarPartida(float dt) {
                 .has_value();
 
         if (colision) {
-
             objeto.recoger();
-
-            puntuacion.agregarPuntos(
-                objeto.getValor()
-            );
+            puntuacion.agregarPuntos(objeto.getValor());
         }
     }
 
-    // Daño por contacto: perseguidor y ambos guardianes.
+    // Dano por contacto: perseguidor y ambos guardianes.
     tiempoAtaque += dt;
     bool peligro =
         cientifico.getLimites().findIntersection(robot->getLimites()).has_value()
@@ -589,18 +567,16 @@ void Juego::actualizarPartida(float dt) {
         tiempoAtaque = 0.f;
     }
 
-// Comprobar estado de la puerta.
+    // Comprobar estado de la puerta.
     nivel.setPuertaDesbloqueada(
         puntuacion.getPuntos() >= 40
     );
 
     // Verificar derrota.
     if (cientifico.getVida() <= 0) {
-
         gameOver = true;
         opcionResultado = 0;
         irAGameOver();
-
         actualizarTitulo();
         return;
     }
@@ -610,50 +586,41 @@ void Juego::actualizarPartida(float dt) {
         puntuacion.getPuntos() >= 40 &&
         nivel.tocarSalida(cientifico.getLimites())
     ) {
-
         nivel.completar();
         victoria = true;
-
         opcionResultado = 0;
-        irAVictoria();
 
+        // Solo al completar los 3 niveles se sube el tiempo y se carga el Top 5
+        if (nivel.getNumero() == 3) {
+            sincronizarRankingGlobal();
+        }
+
+        irAVictoria();
         actualizarTitulo();
         return;
     }
-    
-    tiempoDesdeDisparo += dt;
 
-    // Actualizar la duracion del rayo.
+    tiempoDesdeDisparo += dt;
     armaElectrica.actualizarEfecto(dt);
 
     actualizarCamara();
     actualizarTitulo();
-    }
+}
 
 // ========================================
 // TITULO
 // ========================================
 
 void Juego::actualizarTitulo() {
-
     if (gameOver) {
-
-        ventana.setTitle(
-            "Escape del Laboratorio | GAME OVER"
-        );
-
+        ventana.setTitle("Escape del Laboratorio | GAME OVER");
     }
     else if (victoria) {
-
-        ventana.setTitle(
-            "Escape del Laboratorio | VICTORIA"
-        );
-
+        ventana.setTitle("Escape del Laboratorio | VICTORIA");
     }
     else {
-
         ventana.setTitle(
-            "Escape del Laboratorio"
+            "Escape del Laboratorio | Tiempo: " + formatearTiempo(tiempoTotalPartida)
         );
     }
 }
@@ -663,9 +630,6 @@ void Juego::actualizarTitulo() {
 // ========================================
 
 void Juego::actualizarCamara() {
-
-    // POO - ENCAPSULAMIENTO:
-    // La camara es administrada por Juego.
     sf::Vector2f posicion = cientifico.getPosicion();
 
     sf::Vector2f centro = {
@@ -699,100 +663,50 @@ void Juego::dibujarMenu() {
 
     ventana.setView(vistaInterfaz);
 
-    // Fondo futurista personalizado.
     if (spriteFondoMenu.has_value()) {
-
         ventana.draw(*spriteFondoMenu);
-
     } else {
-
         sf::RectangleShape fondo({800.f, 600.f});
         fondo.setFillColor(sf::Color(10, 18, 32));
         ventana.draw(fondo);
     }
 
-    // Cuadricula tecnologica.
     for (int x = 0; x <= 800; x += 40) {
-
         sf::RectangleShape linea({1.f, 600.f});
-
-        linea.setPosition({
-            static_cast<float>(x), 0.f
-        });
-
-        linea.setFillColor(
-            sf::Color(30, 105, 125, 45)
-        );
-
+        linea.setPosition({static_cast<float>(x), 0.f});
+        linea.setFillColor(sf::Color(30, 105, 125, 45));
         ventana.draw(linea);
     }
 
     for (int y = 0; y <= 600; y += 40) {
-
         sf::RectangleShape linea({800.f, 1.f});
-
-        linea.setPosition({
-            0.f, static_cast<float>(y)
-        });
-
-        linea.setFillColor(
-            sf::Color(30, 105, 125, 45)
-        );
-
+        linea.setPosition({0.f, static_cast<float>(y)});
+        linea.setFillColor(sf::Color(30, 105, 125, 45));
         ventana.draw(linea);
     }
 
-    // Panel transparente.
     sf::RectangleShape panel({650.f, 470.f});
-
     panel.setPosition({75.f, 65.f});
-
-    panel.setFillColor(
-        sf::Color(10, 18, 32, 145)
-    );
-
+    panel.setFillColor(sf::Color(10, 18, 32, 145));
     panel.setOutlineThickness(2.f);
-
-    panel.setOutlineColor(
-        sf::Color(25, 190, 220)
-    );
-
+    panel.setOutlineColor(sf::Color(25, 190, 220));
     ventana.draw(panel);
 
-    // Barra superior.
     sf::RectangleShape barraSuperior({650.f, 12.f});
-
     barraSuperior.setPosition({75.f, 65.f});
-
-    barraSuperior.setFillColor(
-        sf::Color(10, 190, 220)
-    );
-
+    barraSuperior.setFillColor(sf::Color(10, 190, 220));
     ventana.draw(barraSuperior);
 
-    // Alarma.
     sf::CircleShape alarma(9.f);
-
     alarma.setPosition({670.f, 98.f});
-
-    alarma.setFillColor(
-        sf::Color(230, 50, 65)
-    );
-
+    alarma.setFillColor(sf::Color(230, 50, 65));
     ventana.draw(alarma);
 
-    // Separador.
     sf::RectangleShape separador({540.f, 2.f});
-
-    separador.setPosition({130.f, 265.f});
-
-    separador.setFillColor(
-        sf::Color(35, 150, 180)
-    );
-
+    separador.setPosition({130.f, 248.f});
+    separador.setFillColor(sf::Color(35, 150, 180));
     ventana.draw(separador);
 
-    // Opciones del menu.
     const std::string opciones[3] = {
         gameOver || victoria
             ? "NUEVA PARTIDA"
@@ -807,74 +721,44 @@ void Juego::dibujarMenu() {
 
     for (int i = 0; i < 3; i++) {
 
-        float y = 295.f + i * 66.f;
+        float y = 298.f + i * 62.f;
 
-        sf::RectangleShape boton({390.f, 52.f});
-
+        sf::RectangleShape boton({390.f, 48.f});
         boton.setPosition({205.f, y});
 
         bool seleccionado = (opcionMenu == i);
 
         if (seleccionado) {
-
-            boton.setFillColor(
-                sf::Color(15, 105, 130)
-            );
-
-            boton.setOutlineColor(
-                sf::Color(65, 230, 245)
-            );
-
+            boton.setFillColor(sf::Color(15, 105, 130));
+            boton.setOutlineColor(sf::Color(65, 230, 245));
             boton.setOutlineThickness(2.f);
-
         } else {
-
-            boton.setFillColor(
-                sf::Color(22, 43, 63)
-            );
-
-            boton.setOutlineColor(
-                sf::Color(50, 95, 110)
-            );
-
+            boton.setFillColor(sf::Color(22, 43, 63));
+            boton.setOutlineColor(sf::Color(50, 95, 110));
             boton.setOutlineThickness(1.f);
         }
 
         ventana.draw(boton);
 
         if (seleccionado) {
-
-            sf::RectangleShape indicador({7.f, 52.f});
-
+            sf::RectangleShape indicador({7.f, 48.f});
             indicador.setPosition({205.f, y});
-
-            indicador.setFillColor(
-                sf::Color(90, 240, 255)
-            );
-
+            indicador.setFillColor(sf::Color(90, 240, 255));
             ventana.draw(indicador);
         }
 
         if (fuenteCargada) {
-
-            sf::Text texto(
-                fuenteMenu,
-                opciones[i],
-                22
-            );
-
+            sf::Text texto(fuenteMenu, opciones[i], 21);
             texto.setFillColor(
                 seleccionado
                     ? sf::Color(240, 255, 255)
                     : sf::Color(155, 195, 210)
             );
 
-            sf::FloatRect limites =
-                texto.getLocalBounds();
-
+            sf::FloatRect limites = texto.getLocalBounds();
             texto.setPosition({
                 400.f - limites.size.x / 2.f,
-                y + 11.f
+                y + 10.f
             });
 
             ventana.draw(texto);
@@ -882,60 +766,56 @@ void Juego::dibujarMenu() {
     }
 
     if (fuenteCargada) {
-
         sf::Text etiqueta(
             fuenteMenu,
             "SISTEMA DE SEGURIDAD - ACCESO RESTRINGIDO",
             14
         );
-
-        etiqueta.setFillColor(
-            sf::Color(235, 95, 100)
-        );
-
-        etiqueta.setPosition({125.f, 104.f});
+        etiqueta.setFillColor(sf::Color(235, 95, 100));
+        etiqueta.setPosition({125.f, 100.f});
         ventana.draw(etiqueta);
 
-        sf::Text titulo(
-            fuenteMenu,
-            "ESCAPE DEL",
-            43
-        );
-
+        sf::Text titulo(fuenteMenu, "ESCAPE DEL", 41);
         titulo.setStyle(sf::Text::Bold);
-
-        titulo.setFillColor(
-            sf::Color(220, 245, 255)
-        );
-
-        titulo.setPosition({145.f, 145.f});
+        titulo.setFillColor(sf::Color(220, 245, 255));
+        titulo.setPosition({145.f, 136.f});
         ventana.draw(titulo);
 
-        sf::Text subtitulo(
-            fuenteMenu,
-            "LABORATORIO",
-            43
-        );
-
+        sf::Text subtitulo(fuenteMenu, "LABORATORIO", 41);
         subtitulo.setStyle(sf::Text::Bold);
-
-        subtitulo.setFillColor(
-            sf::Color(50, 215, 240)
-        );
-
-        subtitulo.setPosition({145.f, 194.f});
+        subtitulo.setFillColor(sf::Color(50, 215, 240));
+        subtitulo.setPosition({145.f, 183.f});
         ventana.draw(subtitulo);
+
+        // Caja editable para el nombre del jugador en el ranking
+        sf::RectangleShape cajaNombre({390.f, 32.f});
+        cajaNombre.setPosition({205.f, 256.f});
+        cajaNombre.setFillColor(sf::Color(15, 32, 50, 220));
+        cajaNombre.setOutlineThickness(1.5f);
+        cajaNombre.setOutlineColor(sf::Color(255, 215, 75));
+        ventana.draw(cajaNombre);
+
+        std::string nombreVisible = nombreJugador.empty() ? "" : nombreJugador;
+        sf::Text textoJugador(
+            fuenteMenu,
+            "JUGADOR: " + nombreVisible + "|",
+            16
+        );
+        textoJugador.setStyle(sf::Text::Bold);
+        textoJugador.setFillColor(sf::Color(255, 225, 105));
+        sf::FloatRect limJug = textoJugador.getLocalBounds();
+        textoJugador.setPosition({
+            400.f - limJug.size.x / 2.f,
+            262.f
+        });
+        ventana.draw(textoJugador);
 
         sf::Text ayuda(
             fuenteMenu,
             "FLECHAS: SELECCIONAR    |    ENTER: CONFIRMAR",
             14
         );
-
-        ayuda.setFillColor(
-            sf::Color(145, 175, 190)
-        );
-
+        ayuda.setFillColor(sf::Color(145, 175, 190));
         ayuda.setPosition({195.f, 505.f});
         ventana.draw(ayuda);
     }
@@ -950,101 +830,68 @@ void Juego::dibujarControles() {
     ventana.setView(vistaInterfaz);
 
     sf::RectangleShape fondo({800.f, 600.f});
-
-    fondo.setFillColor(
-        sf::Color(10, 18, 32)
-    );
-
+    fondo.setFillColor(sf::Color(10, 18, 32));
     ventana.draw(fondo);
 
     sf::RectangleShape panel({650.f, 470.f});
-
     panel.setPosition({75.f, 65.f});
-
-    panel.setFillColor(
-        sf::Color(16, 33, 52)
-    );
-
+    panel.setFillColor(sf::Color(16, 33, 52));
     panel.setOutlineThickness(2.f);
-
-    panel.setOutlineColor(
-        sf::Color(35, 200, 225)
-    );
-
+    panel.setOutlineColor(sf::Color(35, 200, 225));
     ventana.draw(panel);
 
     if (!fuenteCargada) {
         return;
     }
 
-    sf::Text titulo(
-        fuenteMenu,
-        "MANUAL DEL CIENTIFICO",
-        34
-    );
-
+    sf::Text titulo(fuenteMenu, "MANUAL DEL CIENTIFICO", 34);
     titulo.setStyle(sf::Text::Bold);
-
-    titulo.setFillColor(
-        sf::Color(70, 225, 245)
-    );
-
+    titulo.setFillColor(sf::Color(70, 225, 245));
     titulo.setPosition({135.f, 105.f});
     ventana.draw(titulo);
 
-    sf::Text subtitulo(
-        fuenteMenu,
-        "PROTOCOLO DE ESCAPE",
-        18
-    );
-
-    subtitulo.setFillColor(
-        sf::Color(240, 100, 105)
-    );
-
+    sf::Text subtitulo(fuenteMenu, "PROTOCOLO DE ESCAPE", 18);
+    subtitulo.setFillColor(sf::Color(240, 100, 105));
     subtitulo.setPosition({135.f, 170.f});
     ventana.draw(subtitulo);
 
     const std::string instrucciones[5] = {
         "W / A / S / D   -   Mover al cientifico",
+        "ESPACIO         -   Disparar arma electrica",
         "RECOGE          -   Las 4 baterias de energia",
-        "EVITA           -   Al robot perseguidor",
-        "OBJETIVO        -   Conseguir 40 puntos",
-        "ESCAPE          -   Llega a la puerta abierta"
+        "ESCAPE          -   Supera los 3 niveles rapido",
+        "RANKING         -   Menor tiempo entra al Top 5"
     };
 
     for (int i = 0; i < 5; i++) {
-
-        sf::Text linea(
-            fuenteMenu,
-            instrucciones[i],
-            20
-        );
-
-        linea.setFillColor(
-            sf::Color(225, 240, 245)
-        );
-
-        linea.setPosition({
-            130.f,
-            225.f + i * 48.f
-        });
-
+        sf::Text linea(fuenteMenu, instrucciones[i], 20);
+        linea.setFillColor(sf::Color(225, 240, 245));
+        linea.setPosition({130.f, 225.f + i * 48.f});
         ventana.draw(linea);
     }
 
-    sf::Text regresar(
-        fuenteMenu,
-        "ESC / ENTER  -  VOLVER AL MENU",
-        17
-    );
-
-    regresar.setFillColor(
-        sf::Color(75, 225, 245)
-    );
-
+    sf::Text regresar(fuenteMenu, "ESC / ENTER  -  VOLVER AL MENU", 17);
+    regresar.setFillColor(sf::Color(75, 225, 245));
     regresar.setPosition({215.f, 488.f});
     ventana.draw(regresar);
+}
+
+// ========================================
+// SINCRONIZACION API EXTERNA
+// ========================================
+
+void Juego::sincronizarRankingGlobal() {
+    if (apiSincronizada) {
+        return;
+    }
+
+    apiClient.enviarTiempo(
+        nombreJugador,
+        tiempoTotalPartida
+    );
+
+    rankingGlobal = apiClient.obtenerTop5();
+    apiSincronizada = true;
 }
 
 // ========================================
@@ -1055,123 +902,23 @@ void Juego::dibujarResultado(bool gano) {
 
     ventana.setView(vistaInterfaz);
 
-    // POO - ABSTRACCION:
-    // Una misma funcion dibuja dos resultados
-    // diferentes segun el parametro recibido.
+    const bool juegoCompletado = gano && nivel.getNumero() == 3;
 
     sf::Color colorPrincipal = gano
         ? sf::Color(55, 225, 190)
         : sf::Color(245, 70, 90);
 
     sf::RectangleShape fondo({800.f, 600.f});
-
     fondo.setFillColor(sf::Color(10, 17, 30));
     ventana.draw(fondo);
 
-    // Iluminacion lateral.
     sf::RectangleShape franja({12.f, 600.f});
-
     franja.setFillColor(colorPrincipal);
-
     franja.setPosition({0.f, 0.f});
     ventana.draw(franja);
-
     franja.setPosition({788.f, 0.f});
     ventana.draw(franja);
 
-    // Panel central.
-    sf::RectangleShape panel({640.f, 430.f});
-
-    panel.setPosition({80.f, 85.f});
-
-    panel.setFillColor(
-        sf::Color(18, 33, 50)
-    );
-
-    panel.setOutlineThickness(3.f);
-    panel.setOutlineColor(colorPrincipal);
-
-    ventana.draw(panel);
-
-    // Indicador superior.
-    sf::RectangleShape barra({640.f, 10.f});
-
-    barra.setPosition({80.f, 85.f});
-    barra.setFillColor(colorPrincipal);
-
-    ventana.draw(barra);
-
-    if (!fuenteCargada) {
-        return;
-    }
-
-    sf::Text titulo(
-        fuenteMenu,
-        gano ? "VICTORIA!" : "GAME OVER",
-        50
-    );
-
-    titulo.setStyle(sf::Text::Bold);
-    titulo.setFillColor(colorPrincipal);
-
-    sf::FloatRect limiteTitulo =
-        titulo.getLocalBounds();
-
-    titulo.setPosition({
-        400.f - limiteTitulo.size.x / 2.f,
-        135.f
-    });
-
-    ventana.draw(titulo);
-
-    sf::Text mensaje(
-        fuenteMenu,
-        gano
-            ? (nivel.getNumero() == 3
-                ? "MISION COMPLETADA - ESCAPE EXITOSO"
-                : "Nivel superado. Continua tu escape.")
-            : "El robot atrapo al cientifico",
-        23
-    );
-
-    mensaje.setFillColor(
-        sf::Color(220, 240, 245)
-    );
-
-    sf::FloatRect limiteMensaje =
-        mensaje.getLocalBounds();
-
-    mensaje.setPosition({
-        400.f - limiteMensaje.size.x / 2.f,
-        225.f
-    });
-
-    ventana.draw(mensaje);
-
-    sf::Text puntos(
-        fuenteMenu,
-        "PUNTUACION: " +
-            std::to_string(puntuacion.getPuntos()),
-        23
-    );
-
-    puntos.setFillColor(
-        sf::Color(255, 220, 90)
-    );
-
-    sf::FloatRect limitePuntos =
-        puntos.getLocalBounds();
-
-    puntos.setPosition({
-        400.f - limitePuntos.size.x / 2.f,
-        280.f
-    });
-
-    ventana.draw(puntos);
-
-    
-    // Victoria final: nueva partida; otras victorias: avanzar.
-    const bool juegoCompletado = gano && nivel.getNumero() == 3;
     const std::string opciones[2] = {
         juegoCompletado
             ? "NUEVA PARTIDA"
@@ -1179,67 +926,212 @@ void Juego::dibujarResultado(bool gano) {
         "VOLVER AL MENU"
     };
 
+    // ====================================================
+    // CASO A: VICTORIA FINAL (3 NIVELES) -> CON TOP 5 GLOBAL
+    // ====================================================
+    if (juegoCompletado) {
+        sf::RectangleShape panel({410.f, 450.f});
+        panel.setPosition({35.f, 75.f});
+        panel.setFillColor(sf::Color(18, 33, 50));
+        panel.setOutlineThickness(3.f);
+        panel.setOutlineColor(colorPrincipal);
+        ventana.draw(panel);
+
+        sf::RectangleShape barra({410.f, 10.f});
+        barra.setPosition({35.f, 75.f});
+        barra.setFillColor(colorPrincipal);
+        ventana.draw(barra);
+
+        sf::RectangleShape panelRanking({305.f, 450.f});
+        panelRanking.setPosition({460.f, 75.f});
+        panelRanking.setFillColor(sf::Color(14, 26, 42));
+        panelRanking.setOutlineThickness(2.f);
+        panelRanking.setOutlineColor(sf::Color(50, 195, 230));
+        ventana.draw(panelRanking);
+
+        sf::RectangleShape barraRanking({305.f, 10.f});
+        barraRanking.setPosition({460.f, 75.f});
+        barraRanking.setFillColor(sf::Color(50, 195, 230));
+        ventana.draw(barraRanking);
+
+        if (!fuenteCargada) return;
+
+        const float centroIzq = 240.f;
+
+        sf::Text titulo(fuenteMenu, "VICTORIA!", 42);
+        titulo.setStyle(sf::Text::Bold);
+        titulo.setFillColor(colorPrincipal);
+        sf::FloatRect limT = titulo.getLocalBounds();
+        titulo.setPosition({centroIzq - limT.size.x / 2.f, 115.f});
+        ventana.draw(titulo);
+
+        sf::Text mensaje(fuenteMenu, "MISION COMPLETADA (3/3)", 19);
+        mensaje.setFillColor(sf::Color(220, 240, 245));
+        sf::FloatRect limM = mensaje.getLocalBounds();
+        mensaje.setPosition({centroIzq - limM.size.x / 2.f, 185.f});
+        ventana.draw(mensaje);
+
+        sf::Text tiempoTxt(
+            fuenteMenu,
+            "TIEMPO TOTAL: " + formatearTiempo(tiempoTotalPartida),
+            21
+        );
+        tiempoTxt.setStyle(sf::Text::Bold);
+        tiempoTxt.setFillColor(sf::Color(255, 220, 90));
+        sf::FloatRect limP = tiempoTxt.getLocalBounds();
+        tiempoTxt.setPosition({centroIzq - limP.size.x / 2.f, 235.f});
+        ventana.draw(tiempoTxt);
+
+        for (int i = 0; i < 2; i++) {
+            float y = 300.f + i * 70.f;
+            sf::RectangleShape boton({330.f, 52.f});
+            boton.setPosition({75.f, y});
+
+            bool seleccionado = (opcionResultado == i);
+            boton.setFillColor(seleccionado ? sf::Color(45, 90, 105) : sf::Color(25, 45, 65));
+            boton.setOutlineThickness(seleccionado ? 3.f : 1.f);
+            boton.setOutlineColor(seleccionado ? colorPrincipal : sf::Color(75, 100, 120));
+            ventana.draw(boton);
+
+            sf::Text texto(fuenteMenu, opciones[i], 20);
+            texto.setFillColor(sf::Color::White);
+            sf::FloatRect limB = texto.getLocalBounds();
+            texto.setPosition({centroIzq - limB.size.x / 2.f, y + 12.f});
+            ventana.draw(texto);
+        }
+
+        sf::Text ayuda(fuenteMenu, "FLECHAS: SELECCIONAR   ENTER: CONFIRMAR", 13);
+        ayuda.setFillColor(sf::Color(150, 185, 200));
+        sf::FloatRect limA = ayuda.getLocalBounds();
+        ayuda.setPosition({centroIzq - limA.size.x / 2.f, 475.f});
+        ventana.draw(ayuda);
+
+        // Panel Derecho: TOP 5 MENOR TIEMPO
+        const float centroDer = 612.5f;
+
+        sf::Text tituloRanking(fuenteMenu, "TOP 5 TIEMPOS", 23);
+        tituloRanking.setStyle(sf::Text::Bold);
+        tituloRanking.setFillColor(sf::Color(80, 230, 255));
+        sf::FloatRect limR = tituloRanking.getLocalBounds();
+        tituloRanking.setPosition({centroDer - limR.size.x / 2.f, 112.f});
+        ventana.draw(tituloRanking);
+
+        sf::RectangleShape sepRanking({255.f, 2.f});
+        sepRanking.setPosition({485.f, 152.f});
+        sepRanking.setFillColor(sf::Color(40, 130, 160));
+        ventana.draw(sepRanking);
+
+        if (rankingGlobal.empty()) {
+            sf::Text sinDatos(
+                fuenteMenu,
+                apiClient.huboError()
+                    ? "Modo offline:\nsin conexion al servidor"
+                    : "Sin registros aun",
+                16
+            );
+            sinDatos.setFillColor(sf::Color(180, 195, 210));
+            sinDatos.setPosition({490.f, 200.f});
+            ventana.draw(sinDatos);
+        } else {
+            for (std::size_t i = 0; i < rankingGlobal.size(); ++i) {
+                const auto& reg = rankingGlobal[i];
+                float yFila = 172.f + static_cast<float>(i) * 56.f;
+
+                sf::RectangleShape filaBg({265.f, 44.f});
+                filaBg.setPosition({480.f, yFila});
+                filaBg.setFillColor(i == 0 ? sf::Color(45, 75, 95) : sf::Color(22, 40, 60));
+                filaBg.setOutlineThickness(1.f);
+                filaBg.setOutlineColor(i == 0 ? sf::Color(255, 215, 75) : sf::Color(45, 85, 110));
+                ventana.draw(filaBg);
+
+                std::string linea =
+                    "#" + std::to_string(i + 1) + " " +
+                    reg.jugador + "  -  " + formatearTiempo(reg.tiempo);
+
+                sf::Text textoFila(fuenteMenu, linea, 15);
+                textoFila.setFillColor(i == 0 ? sf::Color(255, 225, 105) : sf::Color(225, 240, 245));
+                textoFila.setPosition({490.f, yFila + 12.f});
+                ventana.draw(textoFila);
+            }
+
+            sf::Text estadoApi(fuenteMenu, "Sincronizado con la nube", 13);
+            estadoApi.setFillColor(sf::Color(90, 220, 160));
+            sf::FloatRect limE = estadoApi.getLocalBounds();
+            estadoApi.setPosition({centroDer - limE.size.x / 2.f, 475.f});
+            ventana.draw(estadoApi);
+        }
+        return;
+    }
+
+    // ====================================================
+    // CASO B: GAME OVER O NIVEL INTERMEDIO (1 o 2)
+    // ====================================================
+    sf::RectangleShape panel({640.f, 430.f});
+    panel.setPosition({80.f, 85.f});
+    panel.setFillColor(sf::Color(18, 33, 50));
+    panel.setOutlineThickness(3.f);
+    panel.setOutlineColor(colorPrincipal);
+    ventana.draw(panel);
+
+    sf::RectangleShape barra({640.f, 10.f});
+    barra.setPosition({80.f, 85.f});
+    barra.setFillColor(colorPrincipal);
+    ventana.draw(barra);
+
+    if (!fuenteCargada) {
+        return;
+    }
+
+    sf::Text titulo(fuenteMenu, gano ? "VICTORIA!" : "GAME OVER", 50);
+    titulo.setStyle(sf::Text::Bold);
+    titulo.setFillColor(colorPrincipal);
+    sf::FloatRect limiteTitulo = titulo.getLocalBounds();
+    titulo.setPosition({400.f - limiteTitulo.size.x / 2.f, 130.f});
+    ventana.draw(titulo);
+
+    sf::Text mensaje(
+        fuenteMenu,
+        gano
+            ? "Nivel " + std::to_string(nivel.getNumero()) + " superado. Continua tu escape."
+            : "El robot atrapo al cientifico",
+        22
+    );
+    mensaje.setFillColor(sf::Color(220, 240, 245));
+    sf::FloatRect limiteMensaje = mensaje.getLocalBounds();
+    mensaje.setPosition({400.f - limiteMensaje.size.x / 2.f, 215.f});
+    ventana.draw(mensaje);
+
+    sf::Text infoTiempo(
+        fuenteMenu,
+        "TIEMPO ACUMULADO: " + formatearTiempo(tiempoTotalPartida),
+        21
+    );
+    infoTiempo.setFillColor(sf::Color(255, 220, 90));
+    sf::FloatRect limitePuntos = infoTiempo.getLocalBounds();
+    infoTiempo.setPosition({400.f - limitePuntos.size.x / 2.f, 270.f});
+    ventana.draw(infoTiempo);
+
     for (int i = 0; i < 2; i++) {
-
-        float y = 340.f + i * 70.f;
-
+        float y = 335.f + i * 70.f;
         sf::RectangleShape boton({380.f, 55.f});
-
         boton.setPosition({210.f, y});
 
         bool seleccionado = (opcionResultado == i);
-
-        boton.setFillColor(
-            seleccionado
-                ? sf::Color(45, 90, 105)
-                : sf::Color(25, 45, 65)
-        );
-
-        boton.setOutlineThickness(
-            seleccionado ? 3.f : 1.f
-        );
-
-        boton.setOutlineColor(
-            seleccionado
-                ? colorPrincipal
-                : sf::Color(75, 100, 120)
-        );
-
+        boton.setFillColor(seleccionado ? sf::Color(45, 90, 105) : sf::Color(25, 45, 65));
+        boton.setOutlineThickness(seleccionado ? 3.f : 1.f);
+        boton.setOutlineColor(seleccionado ? colorPrincipal : sf::Color(75, 100, 120));
         ventana.draw(boton);
 
-        sf::Text texto(
-            fuenteMenu,
-            opciones[i],
-            22
-        );
-
-        texto.setFillColor(
-            sf::Color::White
-        );
-
-        sf::FloatRect limiteTexto =
-            texto.getLocalBounds();
-
-        texto.setPosition({
-            400.f - limiteTexto.size.x / 2.f,
-            y + 12.f
-        });
-
+        sf::Text texto(fuenteMenu, opciones[i], 22);
+        texto.setFillColor(sf::Color::White);
+        sf::FloatRect limiteTexto = texto.getLocalBounds();
+        texto.setPosition({400.f - limiteTexto.size.x / 2.f, y + 12.f});
         ventana.draw(texto);
     }
 
-    sf::Text ayuda(
-        fuenteMenu,
-        "FLECHAS: SELECCIONAR   ENTER: CONFIRMAR",
-        14
-    );
-
-    ayuda.setFillColor(
-        sf::Color(150, 185, 200)
-    );
-
+    sf::Text ayuda(fuenteMenu, "FLECHAS: SELECCIONAR   ENTER: CONFIRMAR", 14);
+    ayuda.setFillColor(sf::Color(150, 185, 200));
     ayuda.setPosition({215.f, 485.f});
-
     ventana.draw(ayuda);
 }
 
@@ -1261,10 +1153,6 @@ void Juego::dibujar() {
 
 void Juego::dibujarPartida() {
 
-    // ========================================
-    // ESCENARIO DEL LABORATORIO
-    // ========================================
-
     ventana.setView(camara);
 
     nivel.draw(ventana);
@@ -1273,7 +1161,6 @@ void Juego::dibujarPartida() {
         objeto.draw(ventana);
     }
 
-    // POLIMORFISMO: dibujar cientifico y perseguidor.
     std::vector<std::reference_wrapper<Personaje>> personajes = {
         cientifico, *robot
     };
@@ -1294,7 +1181,6 @@ void Juego::dibujarPartida() {
             personaje.draw(ventana);
         }
 
-        // Cada atacante muestra su propio rayo, simultaneamente.
         for (const EfectoLaser& laser : laseres) {
             if (laser.tiempoVisible <= 0.f) {
                 continue;
@@ -1314,8 +1200,6 @@ void Juego::dibujarPartida() {
         }
     }
 
-    // POO - COMPOSICION:
-    // Juego utiliza el arma electrica del cientifico.
     armaElectrica.actualizar(
         cientifico.getPosicion(),
         cientifico.getDireccion()
@@ -1328,83 +1212,58 @@ void Juego::dibujarPartida() {
     // ========================================
 
     ventana.setView(vistaInterfaz);
-    
-    // POO - SRP: se delega la interfaz a HUD.
+
     hud.dibujar(ventana, fuenteCargada ? &fuenteMenu : nullptr,
                 cientifico.getVida(), puntuacion.getPuntos(),
                 nivel.getNumero(), cargasElectricas);
-    
+
+    // Cronometro global visible debajo del nivel
+    if (fuenteCargada) {
+        sf::Text textoCrono(
+            fuenteMenu,
+            "TIEMPO: " + formatearTiempo(tiempoTotalPartida),
+            16
+        );
+        textoCrono.setStyle(sf::Text::Bold);
+        textoCrono.setFillColor(sf::Color(255, 225, 105));
+        sf::FloatRect limC = textoCrono.getLocalBounds();
+        textoCrono.setPosition({400.f - limC.size.x / 2.f, 60.f});
+        ventana.draw(textoCrono);
+    }
+
     // ========================================
     // TUTORIAL - NIVEL 1
     // ========================================
-        //correcion de la ventana inferior
-    //if (nivel.getNumero() == 1 && fuenteCargada) {
     if (nivel.getNumero() == 1 && fuenteCargada &&
-    (tiempoTutorial < 5.f ||
-    sf::Keyboard::isKeyPressed(sf::Keyboard::Key::H))) {
+        (tiempoTutorial < 5.f ||
+         sf::Keyboard::isKeyPressed(sf::Keyboard::Key::H))) {
 
-        // Asegurar que el panel use coordenadas
-        // de pantalla y no del mapa.
         ventana.setView(vistaInterfaz);
 
-        // Fondo del tutorial.
         sf::RectangleShape panelTutorial({560.f, 95.f});
         panelTutorial.setPosition({120.f, 490.f});
-
-        panelTutorial.setFillColor(
-            sf::Color(10, 20, 35, 225)
-        );
-
+        panelTutorial.setFillColor(sf::Color(10, 20, 35, 225));
         panelTutorial.setOutlineThickness(2.f);
-        panelTutorial.setOutlineColor(
-            sf::Color(60, 210, 240)
-        );
-
+        panelTutorial.setOutlineColor(sf::Color(60, 210, 240));
         ventana.draw(panelTutorial);
 
-        // Titulo del tutorial.
-        sf::Text tituloTutorial(
-            fuenteMenu,
-            "PROTOCOLO DE ENTRENAMIENTO",
-            18
-        );
-
+        sf::Text tituloTutorial(fuenteMenu, "PROTOCOLO DE ENTRENAMIENTO", 18);
         tituloTutorial.setStyle(sf::Text::Bold);
-        tituloTutorial.setFillColor(
-            sf::Color(80, 230, 255)
-        );
+        tituloTutorial.setFillColor(sf::Color(80, 230, 255));
         tituloTutorial.setPosition({145.f, 502.f});
-
         ventana.draw(tituloTutorial);
 
-        // Primera linea de instrucciones.
-        sf::Text instrucciones1(
-            fuenteMenu,
-            "WASD: Mover   |   ESPACIO: Disparar",
-            15
-        );
-
+        sf::Text instrucciones1(fuenteMenu, "WASD: Mover   |   ESPACIO: Disparar", 15);
         instrucciones1.setFillColor(sf::Color::White);
         instrucciones1.setPosition({145.f, 530.f});
-
         ventana.draw(instrucciones1);
 
-        // Segunda linea de instrucciones.
-        sf::Text instrucciones2(
-            fuenteMenu,
-            "Recoge 4 baterias y llega a la salida.",
-            15
-        );
-
+        sf::Text instrucciones2(fuenteMenu, "Recoge 4 baterias y llega a la salida.", 15);
         instrucciones2.setFillColor(sf::Color::White);
         instrucciones2.setPosition({145.f, 553.f});
-
         ventana.draw(instrucciones2);
     }
-
 }
-
-
 
 void Juego::dibujarPausa() {
     dibujarPartida();
@@ -1421,12 +1280,7 @@ void Juego::dibujarPausa() {
         titulo.setPosition({315.f, 220.f});
         ventana.draw(titulo);
 
-        sf::Text mensaje(
-            fuenteMenu,
-            "P: Continuar | ESC: Menu",
-            22
-        );
-
+        sf::Text mensaje(fuenteMenu, "P: Continuar | ESC: Menu", 22);
         mensaje.setPosition({260.f, 310.f});
         ventana.draw(mensaje);
     }
@@ -1456,24 +1310,19 @@ void Juego::ejecutar() {
     }
 }
 
-
 void Juego::dispararElectrico() {
 
-    // No disparar sin cargas.
     if (cargasElectricas <= 0) {
         return;
     }
 
-    // Evitar disparos demasiado seguidos.
     if (tiempoDesdeDisparo < intervaloDisparo) {
         return;
     }
 
-    // Consumir una carga.
     cargasElectricas--;
     tiempoDesdeDisparo = 0.f;
 
-    // Activar el rayo electrico visual.
     armaElectrica.actualizar(
         cientifico.getPosicion(),
         cientifico.getDireccion()
@@ -1481,13 +1330,9 @@ void Juego::dispararElectrico() {
 
     armaElectrica.activarDisparo();
 
-    // Posicion y direccion del cientifico.
     sf::Vector2f origen = cientifico.getPosicion();
     int direccion = cientifico.getDireccion();
 
-    // POO - ABSTRACCION:
-    // Comprobar si una posicion se encuentra
-    // dentro del alcance del disparo.
     auto estaEnAlcance = [&](sf::Vector2f destino) {
         float dx = destino.x - origen.x;
         float dy = destino.y - origen.y;
@@ -1528,12 +1373,10 @@ void Juego::dispararElectrico() {
         return true;
     };
 
-    // Aturdir al robot perseguidor.
     if (estaEnAlcance(robot->getPosicion())) {
         robot->aturdir(3.f);
     }
 
-    // Los dos guardianes pueden ser aturdidos por separado.
     if (nivel.getNumero() >= 2) {
         for (RobotGuardian* guardia : guardianes) {
             if (estaEnAlcance(guardia->getPosicion())) {
@@ -1542,7 +1385,6 @@ void Juego::dispararElectrico() {
         }
     }
 
-    // Cada atacante recibe el efecto de la pistola electrica.
     if (nivel.getNumero() == 3) {
         for (RobotAtaque* atacante : atacantes) {
             if (estaEnAlcance(atacante->getPosicion())) {
@@ -1550,5 +1392,4 @@ void Juego::dispararElectrico() {
             }
         }
     }
-
 }
