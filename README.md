@@ -2,7 +2,7 @@
 ### 🧪 Un experimento fallido. Un laboratorio fuera de control. Una misión: escapar.
 
 <p align="center">
-  **Proyecto Final – Programación Orientada a Objetos (POO)**
+  Proyecto Final – Programación Orientada a Objetos (POO)
   
   **Universidad Peruana Cayetano Heredia | Ciclo 2026-2**
 
